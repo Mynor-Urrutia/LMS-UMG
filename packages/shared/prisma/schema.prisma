@@ -1,0 +1,508 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum EnrollmentType {
+  OPEN
+  INVITATION
+  APPROVAL
+}
+
+enum EnrollmentStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  REJECTED
+}
+
+enum LessonType {
+  TEXT
+  VIDEO
+  FILE
+}
+
+enum AssignmentType {
+  TEXT
+  FILE
+  QUIZ
+}
+
+enum BadgeCriteria {
+  COURSE_COMPLETE
+  PERFECT_QUIZ
+  STREAK
+  MANUAL
+}
+
+enum NotificationType {
+  GRADE_POSTED
+  BADGE_EARNED
+  ENROLLMENT_APPROVED
+  ENROLLMENT_REJECTED
+  NEW_LESSON
+  ASSIGNMENT_DUE_SOON
+  FORUM_REPLY
+  SYSTEM
+}
+
+// ─── Auth & Users ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  role         Role       @default(STUDENT)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  profile        Profile?
+  refreshTokens  RefreshToken[]
+  coursesTaught  Course[]        @relation("TeacherCourses")
+  enrollments    Enrollment[]
+  submissions    Submission[]
+  gradesGiven    Grade[]         @relation("GradedBy")
+  badges         UserBadge[]
+  xp             UserXp?
+  xpTransactions XpTransaction[]
+  notifications  Notification[]
+  forumThreads   ForumThread[]
+  forumPosts     ForumPost[]
+  fileAssets     FileAsset[]
+  auditLogs      AuditLog[]
+  lessonProgress LessonProgress[]
+  calendarEvents CalendarEvent[]
+
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+model Profile {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  firstName  String
+  lastName   String
+  avatarPath String?
+  bio        String?  @db.Text
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ─── Courses & Content ────────────────────────────────────────────────────────
+
+model CourseCategory {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  slug    String   @unique
+  courses Course[]
+
+  @@map("course_categories")
+}
+
+model Course {
+  id             String         @id @default(cuid())
+  teacherId      String
+  categoryId     String?
+  title          String
+  slug           String         @unique
+  description    String?        @db.Text
+  thumbnailPath  String?
+  difficulty     Difficulty     @default(BEGINNER)
+  status         CourseStatus   @default(DRAFT)
+  enrollmentType EnrollmentType @default(OPEN)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  /// Invariant: teacher cannot be deleted while owning courses — admin must reassign courses first
+  teacher        User            @relation("TeacherCourses", fields: [teacherId], references: [id])
+  category       CourseCategory? @relation(fields: [categoryId], references: [id])
+  modules        CourseModule[]
+  enrollments    Enrollment[]
+  assignments    Assignment[]
+  badges         Badge[]
+  calendarEvents CalendarEvent[]
+  forumThreads   ForumThread[]
+
+  @@index([teacherId])
+  @@index([categoryId])
+  @@index([status])
+  @@map("courses")
+}
+
+model CourseModule {
+  id        String   @id @default(cuid())
+  courseId  String
+  title     String
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@unique([courseId, order])
+  @@index([courseId])
+  @@map("course_modules")
+}
+
+model Lesson {
+  id          String     @id @default(cuid())
+  moduleId    String
+  fileAssetId String?
+  title       String
+  type        LessonType @default(TEXT)
+  content     String?    @db.LongText
+  videoUrl    String?
+  filePath    String?
+  order       Int
+  isPublished Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  module      CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  fileAsset   FileAsset?       @relation(fields: [fileAssetId], references: [id])
+  progress    LessonProgress[]
+  assignments Assignment[]
+
+  @@unique([moduleId, order])
+  @@index([moduleId])
+  @@map("lessons")
+}
+
+model Enrollment {
+  id         String           @id @default(cuid())
+  studentId  String
+  courseId   String
+  status     EnrollmentStatus @default(PENDING)
+  enrolledAt DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  student User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, courseId])
+  @@index([studentId])
+  @@index([courseId])
+  @@index([status])
+  @@map("enrollments")
+}
+
+model LessonProgress {
+  id          String   @id @default(cuid())
+  studentId   String
+  lessonId    String
+  completedAt DateTime @default(now())
+
+  student User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lesson  Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, lessonId])
+  @@index([studentId])
+  @@index([lessonId])
+  @@map("lesson_progress")
+}
+
+// ─── Assignments & Grading ────────────────────────────────────────────────────
+
+model Assignment {
+  id          String         @id @default(cuid())
+  courseId    String
+  lessonId    String?
+  title       String
+  description String?        @db.Text
+  type        AssignmentType @default(TEXT)
+  dueDate     DateTime?
+  allowLate   Boolean        @default(true)
+  maxScore    Int            @default(100)
+  /// Invariant (enforced at application layer): weight > 0 && weight <= 10
+  weight      Float          @default(1.0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  course        Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lesson        Lesson?        @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  quizQuestions QuizQuestion[]
+  submissions   Submission[]
+
+  @@index([courseId])
+  @@index([lessonId])
+  @@index([dueDate])
+  @@map("assignments")
+}
+
+model QuizQuestion {
+  id            String   @id @default(cuid())
+  assignmentId  String
+  question      String   @db.Text
+  options       Json
+  /// Invariant (enforced at application layer): correctOption >= 0 && correctOption < options.length
+  correctOption Int
+  order         Int
+  createdAt     DateTime @default(now())
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, order])
+  @@index([assignmentId])
+  @@map("quiz_questions")
+}
+
+model Submission {
+  id           String   @id @default(cuid())
+  studentId    String
+  assignmentId String
+  textContent  String?  @db.Text
+  filePath     String?
+  fileAssetId  String?
+  isLate       Boolean  @default(false)
+  submittedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  student    User        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignment Assignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  fileAsset  FileAsset?  @relation(fields: [fileAssetId], references: [id], onDelete: SetNull)
+  grade      Grade?
+
+  @@unique([studentId, assignmentId])
+  @@index([studentId])
+  @@index([assignmentId])
+  @@map("submissions")
+}
+
+model Grade {
+  id           String   @id @default(cuid())
+  submissionId String   @unique
+  teacherId    String?
+  score        Float
+  maxScore     Float    @default(100)
+  feedback     String?  @db.Text
+  gradedAt     DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  /// Invariant: SetNull preserves grade history when a teacher account is deleted
+  teacher    User?      @relation("GradedBy", fields: [teacherId], references: [id], onDelete: SetNull)
+
+  // Invariant (enforced at application layer): score >= 0 AND score <= maxScore
+  @@index([teacherId])
+  @@map("grades")
+}
+
+// ─── Gamification ─────────────────────────────────────────────────────────────
+
+model Badge {
+  id           String        @id @default(cuid())
+  courseId     String?
+  name         String
+  description  String?
+  iconPath     String?
+  criteriaType BadgeCriteria @default(MANUAL)
+  createdAt    DateTime      @default(now())
+
+  course     Course?     @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  userBadges UserBadge[]
+
+  @@index([courseId])
+  @@map("badges")
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeId   String
+  awardedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+  @@map("user_badges")
+}
+
+model UserXp {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  totalXp   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_xp")
+}
+
+model XpTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("xp_transactions")
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String?          @db.Text
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// ─── Community ────────────────────────────────────────────────────────────────
+
+model ForumThread {
+  id        String   @id @default(cuid())
+  courseId  String
+  authorId  String?
+  title     String
+  isPinned  Boolean  @default(false)
+  isLocked  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  author User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  posts  ForumPost[]
+
+  @@index([courseId])
+  @@index([authorId])
+  @@map("forum_threads")
+}
+
+model ForumPost {
+  id        String    @id @default(cuid())
+  threadId  String
+  authorId  String?
+  content   String    @db.Text
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  thread ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([threadId])
+  @@index([authorId])
+  @@map("forum_posts")
+}
+
+// ─── Files & Audit ────────────────────────────────────────────────────────────
+
+model FileAsset {
+  id           String   @id @default(cuid())
+  uploaderId   String?
+  originalName String
+  storedName   String   @unique
+  mimeType     String
+  sizeBytes    BigInt
+  path         String
+  createdAt    DateTime @default(now())
+
+  uploader    User?        @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
+  lessons     Lesson[]
+  submissions Submission[]
+
+  @@index([uploaderId])
+  @@map("file_assets")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model CalendarEvent {
+  id          String    @id @default(cuid())
+  courseId    String?
+  createdById String?
+  title       String
+  description String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  course    Course? @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// Invariant: SetNull preserves event history when creator account is deleted
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([courseId])
+  @@index([createdById])
+  @@index([startsAt])
+  @@map("calendar_events")
+}

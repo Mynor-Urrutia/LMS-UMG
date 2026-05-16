@@ -1,0 +1,37 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Build outputs
+dist
+**/.next
+**/out
+
+# Environment files — NEVER in image
+.env
+.env.*
+!.env.example
+
+# Uploads — mounted as volume
+uploads
+
+# Prisma generated
+**/generated
+
+# Dev tools
+.vscode
+.idea
+coverage
+**/*.log
+
+# Git
+.git
+.gitignore
+
+# Docker files (not needed in build)
+docker-compose*.yml
+nginx
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,20 @@
+{
+  "name": "lms",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev:api": "pnpm --filter @lms/api dev",
+    "dev:web": "pnpm --filter @lms/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "db:migrate": "pnpm --filter @lms/shared db:migrate",
+    "db:generate": "pnpm --filter @lms/shared db:generate",
+    "db:studio": "pnpm --filter @lms/shared db:studio",
+    "db:seed": "pnpm --filter @lms/shared db:seed"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  }
+}
