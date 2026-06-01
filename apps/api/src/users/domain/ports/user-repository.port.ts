@@ -23,6 +23,10 @@ export interface ProfileData {
   firstName?: string;
   lastName?: string;
   bio?: string;
+  carnet?: string;
+  gradeId?: string | null;
+  sectionId?: string | null;
+  departmentId?: string | null;
   // avatarPath intentionally excluded — handled by a dedicated file-upload endpoint
 }
 
@@ -33,4 +37,5 @@ export interface IUserRepository {
   // Atomically checks last-admin invariant and updates role in a serializable transaction
   atomicChangeRole(userId: string, newRole: UserRole): Promise<'ok' | 'last-admin-blocked'>;
   changeStatus(userId: string, status: UserStatus): Promise<void>;
+  assignCustomRole(userId: string, customRoleId: string | null): Promise<void>;
 }

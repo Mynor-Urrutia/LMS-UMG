@@ -3,6 +3,7 @@ import { ICourseRepository, COURSE_REPOSITORY } from '../../domain/ports/course-
 import { CourseEntity, CourseStatus } from '../../domain/entities/course.entity';
 import { UpdateCourseDto } from '../dtos/update-course.dto';
 import { UserRole } from '../../../common/enums/user-role.enum';
+import { sanitizePlainText } from '../../../common/utils/sanitize';
 
 @Injectable()
 export class UpdateCourseUseCase {
@@ -38,7 +39,7 @@ export class UpdateCourseUseCase {
 
     return this.courseRepo.update(id, {
       title: dto.title,
-      description: dto.description,
+      description: dto.description !== undefined ? (dto.description ? sanitizePlainText(dto.description) : null) : undefined,
       difficulty: dto.difficulty,
       enrollmentType: dto.enrollmentType,
       categoryId: dto.categoryId,

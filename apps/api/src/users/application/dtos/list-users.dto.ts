@@ -1,8 +1,8 @@
 import { IsOptional, IsEnum, IsString, MaxLength, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { UserRole } from '../../../../common/enums/user-role.enum';
-import { UserStatus } from '../../../../common/enums/user-status.enum';
+import { UserRole } from '../../../common/enums/user-role.enum';
+import { UserStatus } from '../../../common/enums/user-status.enum';
 
 export class ListUsersDto {
   @ApiPropertyOptional({ default: 1 })

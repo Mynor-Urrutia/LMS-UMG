@@ -17,9 +17,13 @@ export class PrismaUserAdapter implements IAuthUserRepository {
     return user ? this.toAuthUser(user) : null;
   }
 
-  async createUser(email: string, passwordHash: string): Promise<AuthUser> {
-    const user = await this.prisma.user.create({
-      data: { email, passwordHash },
+  async createUser(email: string, passwordHash: string, firstName?: string, lastName?: string, role?: UserRole): Promise<AuthUser> {
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({ data: { email, passwordHash, ...(role ? { role } : {}) } });
+      if (firstName && lastName) {
+        await tx.profile.create({ data: { userId: created.id, firstName, lastName } });
+      }
+      return created;
     });
     return this.toAuthUser(user);
   }
@@ -107,13 +111,14 @@ export class PrismaUserAdapter implements IAuthUserRepository {
     ]);
   }
 
-  private toAuthUser(user: { id: string; email: string; passwordHash: string; role: string; status: string }): AuthUser {
+  private toAuthUser(user: { id: string; email: string; passwordHash: string; role: string; status: string; customRoleId?: string | null }): AuthUser {
     return {
       id: user.id,
       email: user.email,
       passwordHash: user.passwordHash,
       role: user.role as UserRole,
       status: user.status,
+      customRoleId: user.customRoleId ?? null,
     };
   }
 }

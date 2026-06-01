@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -50,19 +51,45 @@ enum LessonType {
   TEXT
   VIDEO
   FILE
+  EMBED
+  INFOGRAPHIC
+  CASE_STUDY
 }
 
 enum AssignmentType {
   TEXT
   FILE
   QUIZ
+  DILEMMA
+}
+
+enum SurveyQuestionType {
+  MULTIPLE_CHOICE
+  TEXT
+  LIKERT
+  YES_NO
+}
+
+enum QuestionType {
+  TEXT
+  MCQ
+  TRUE_FALSE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
 }
 
 enum BadgeCriteria {
   COURSE_COMPLETE
   PERFECT_QUIZ
+  FIRST_ENROLLMENT
   STREAK
   MANUAL
+  LEVEL_UP
 }
 
 enum NotificationType {
@@ -84,43 +111,88 @@ model User {
   passwordHash String
   role         Role       @default(STUDENT)
   status       UserStatus @default(ACTIVE)
+  customRoleId String?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  profile        Profile?
-  refreshTokens  RefreshToken[]
-  coursesTaught  Course[]        @relation("TeacherCourses")
-  enrollments    Enrollment[]
-  submissions    Submission[]
-  gradesGiven    Grade[]         @relation("GradedBy")
-  badges         UserBadge[]
-  xp             UserXp?
-  xpTransactions XpTransaction[]
-  notifications  Notification[]
-  forumThreads   ForumThread[]
-  forumPosts     ForumPost[]
-  fileAssets     FileAsset[]
-  auditLogs      AuditLog[]
-  lessonProgress LessonProgress[]
-  calendarEvents CalendarEvent[]
+  profile           Profile?
+  customRole        CustomRole?      @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  refreshTokens     RefreshToken[]
+  coursesTaught     Course[]        @relation("TeacherCourses")
+  enrollments       Enrollment[]
+  submissions       Submission[]
+  gradesGiven       Grade[]         @relation("GradedBy")
+  badges            UserBadge[]
+  xp                UserXp?
+  xpTransactions    XpTransaction[]
+  notifications     Notification[]
+  forumThreads      ForumThread[]
+  forumPosts        ForumPost[]
+  fileAssets        FileAsset[]
+  auditLogs         AuditLog[]
+  announcements     CourseAnnouncement[]
+  lessonProgress    LessonProgress[]
+  calendarEvents    CalendarEvent[]
+  attempts          StudentAttempt[]
+  attendanceRecords AttendanceRecord[]
+  courseReviews     CourseReview[]     @relation("StudentReviews")
+  certificates      Certificate[]      @relation("StudentCertificates")
+  surveyResponses   SurveyResponse[]
 
   @@index([role])
   @@index([status])
+  @@index([customRoleId])
   @@map("users")
 }
 
 model Profile {
-  id         String   @id @default(cuid())
-  userId     String   @unique
-  firstName  String
-  lastName   String
-  avatarPath String?
-  bio        String?  @db.Text
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  firstName    String
+  lastName     String
+  carnet       String?
+  gradeId      String?
+  sectionId    String?
+  departmentId String?
+  avatarPath   String?
+  bio          String?  @db.Text
+  updatedAt    DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grade      AcademicGrade?      @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  section    AcademicSection?    @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  department AcademicDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
+  @@index([gradeId])
+  @@index([sectionId])
+  @@index([departmentId])
   @@map("profiles")
+}
+
+model AcademicGrade {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  order    Int       @default(0)
+  profiles Profile[]
+
+  @@index([order])
+  @@map("academic_grades")
+}
+
+model AcademicSection {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  profiles Profile[]
+
+  @@map("academic_sections")
+}
+
+model AcademicDepartment {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  profiles Profile[]
+
+  @@map("academic_departments")
 }
 
 model RefreshToken {
@@ -136,6 +208,48 @@ model RefreshToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
+}
+
+// ─── RBAC ─────────────────────────────────────────────────────────────────────
+
+model CustomRole {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  baseRole    Role     @default(STUDENT)
+  isSystem    Boolean  @default(false)
+  color       String?
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("custom_roles")
+}
+
+model Permission {
+  id          String @id @default(cuid())
+  key         String @unique
+  name        String
+  description String?
+  group       String
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       CustomRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
 }
 
 // ─── Courses & Content ────────────────────────────────────────────────────────
@@ -164,14 +278,20 @@ model Course {
   updatedAt      DateTime       @updatedAt
 
   /// Invariant: teacher cannot be deleted while owning courses — admin must reassign courses first
-  teacher        User            @relation("TeacherCourses", fields: [teacherId], references: [id])
-  category       CourseCategory? @relation(fields: [categoryId], references: [id])
-  modules        CourseModule[]
-  enrollments    Enrollment[]
-  assignments    Assignment[]
-  badges         Badge[]
-  calendarEvents CalendarEvent[]
-  forumThreads   ForumThread[]
+  teacher            User            @relation("TeacherCourses", fields: [teacherId], references: [id])
+  category           CourseCategory? @relation(fields: [categoryId], references: [id])
+  modules            CourseModule[]
+  enrollments        Enrollment[]
+  assignments        Assignment[]
+  badges             Badge[]
+  calendarEvents     CalendarEvent[]
+  forumThreads       ForumThread[]
+  evaluations        Evaluation[]
+  attendanceSessions AttendanceSession[]
+  announcements      CourseAnnouncement[]
+  reviews            CourseReview[]
+  certificates       Certificate[]
+  surveys            Survey[]
 
   @@index([teacherId])
   @@index([categoryId])
@@ -180,18 +300,22 @@ model Course {
 }
 
 model CourseModule {
-  id        String   @id @default(cuid())
-  courseId  String
-  title     String
-  order     Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  courseId             String
+  prerequisiteModuleId String?
+  title                String
+  order                Int
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lessons Lesson[]
+  course             Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  prerequisiteModule CourseModule? @relation("ModulePrerequisite", fields: [prerequisiteModuleId], references: [id], onDelete: SetNull)
+  dependentModules   CourseModule[] @relation("ModulePrerequisite")
+  lessons            Lesson[]
 
   @@unique([courseId, order])
   @@index([courseId])
+  @@index([prerequisiteModuleId])
   @@map("course_modules")
 }
 
@@ -204,6 +328,7 @@ model Lesson {
   content     String?    @db.LongText
   videoUrl    String?
   filePath    String?
+  embedUrl    String?
   order       Int
   isPublished Boolean    @default(false)
   createdAt   DateTime   @default(now())
@@ -269,10 +394,11 @@ model Assignment {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  course        Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lesson        Lesson?        @relation(fields: [lessonId], references: [id], onDelete: SetNull)
-  quizQuestions QuizQuestion[]
-  submissions   Submission[]
+  course          Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lesson          Lesson?         @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  quizQuestions   QuizQuestion[]
+  submissions     Submission[]
+  dilemmaScenario DilemmaScenario?
 
   @@index([courseId])
   @@index([lessonId])
@@ -304,18 +430,21 @@ model Submission {
   textContent  String?  @db.Text
   filePath     String?
   fileAssetId  String?
+  choiceId     String?
   isLate       Boolean  @default(false)
   submittedAt  DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  student    User        @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  assignment Assignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  fileAsset  FileAsset?  @relation(fields: [fileAssetId], references: [id], onDelete: SetNull)
+  student    User            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignment Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  fileAsset  FileAsset?      @relation(fields: [fileAssetId], references: [id], onDelete: SetNull)
+  choice     DilemmaChoice?  @relation(fields: [choiceId], references: [id], onDelete: SetNull)
   grade      Grade?
 
   @@unique([studentId, assignmentId])
   @@index([studentId])
   @@index([assignmentId])
+  @@index([choiceId])
   @@map("submissions")
 }
 
@@ -336,6 +465,91 @@ model Grade {
   // Invariant (enforced at application layer): score >= 0 AND score <= maxScore
   @@index([teacherId])
   @@map("grades")
+}
+
+// ─── Evaluaciones ─────────────────────────────────────────────────────────────
+
+model Evaluation {
+  id          String    @id @default(cuid())
+  courseId    String
+  title       String    @db.VarChar(255)
+  description String?   @db.Text
+  dueDate     DateTime?
+  totalPoints Int       @default(100)
+  isPublished Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  course    Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions EvaluationQuestion[]
+  attempts  StudentAttempt[]
+
+  @@index([courseId])
+  @@map("evaluations")
+}
+
+model EvaluationQuestion {
+  id           String       @id @default(cuid())
+  evaluationId String
+  text         String       @db.Text
+  type         QuestionType
+  points       Int          @default(10)
+  order        Int
+
+  evaluation Evaluation       @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  options    QuestionOption[]
+  answers    QuestionAnswer[]
+
+  @@unique([evaluationId, order])
+  @@index([evaluationId])
+  @@map("evaluation_questions")
+}
+
+model QuestionOption {
+  id         String  @id @default(cuid())
+  questionId String
+  text       String  @db.VarChar(500)
+  isCorrect  Boolean @default(false)
+  order      Int
+
+  question EvaluationQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@map("question_options")
+}
+
+model StudentAttempt {
+  id           String    @id @default(cuid())
+  evaluationId String
+  studentId    String
+  submittedAt  DateTime  @default(now())
+  score        Int?
+  feedback     String?   @db.Text
+
+  evaluation Evaluation       @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  student    User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers    QuestionAnswer[]
+
+  @@unique([evaluationId, studentId])
+  @@index([evaluationId])
+  @@index([studentId])
+  @@map("student_attempts")
+}
+
+model QuestionAnswer {
+  id          String  @id @default(cuid())
+  attemptId   String
+  questionId  String
+  textAnswer  String? @db.Text
+  selectedIds String? @db.VarChar(1000)
+
+  attempt  StudentAttempt      @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question EvaluationQuestion  @relation(fields: [questionId], references: [id])
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+  @@index([questionId])
+  @@map("question_answers")
 }
 
 // ─── Gamification ─────────────────────────────────────────────────────────────
@@ -437,30 +651,68 @@ model ForumPost {
   id        String    @id @default(cuid())
   threadId  String
   authorId  String?
+  parentId  String?
   content   String    @db.Text
   deletedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  thread ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  author User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  thread  ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author  User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  parent  ForumPost?  @relation("PostReplies", fields: [parentId], references: [id], onDelete: SetNull)
+  replies ForumPost[] @relation("PostReplies")
 
   @@index([threadId])
   @@index([authorId])
+  @@index([parentId])
   @@map("forum_posts")
+}
+
+// ─── Asistencias ──────────────────────────────────────────────────────────────
+
+model AttendanceSession {
+  id        String   @id @default(cuid())
+  courseId  String
+  date      DateTime @db.Date
+  notes     String?  @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  course  Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  records AttendanceRecord[]
+
+  @@unique([courseId, date])
+  @@index([courseId])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  id        String           @id @default(cuid())
+  sessionId String
+  studentId String
+  status    AttendanceStatus @default(PRESENT)
+
+  session AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+  @@index([sessionId])
+  @@index([studentId])
+  @@map("attendance_records")
 }
 
 // ─── Files & Audit ────────────────────────────────────────────────────────────
 
 model FileAsset {
-  id           String   @id @default(cuid())
-  uploaderId   String?
-  originalName String
-  storedName   String   @unique
-  mimeType     String
-  sizeBytes    BigInt
-  path         String
-  createdAt    DateTime @default(now())
+  id            String   @id @default(cuid())
+  uploaderId    String?
+  originalName  String
+  storedName    String   @unique
+  mimeType      String
+  sizeBytes     BigInt
+  path          String
+  pdfStoredName String?
+  pdfPath       String?
+  createdAt     DateTime @default(now())
 
   uploader    User?        @relation(fields: [uploaderId], references: [id], onDelete: SetNull)
   lessons     Lesson[]
@@ -505,4 +757,150 @@ model CalendarEvent {
   @@index([createdById])
   @@index([startsAt])
   @@map("calendar_events")
+}
+
+model CourseAnnouncement {
+  id        String   @id @default(cuid())
+  courseId  String
+  authorId  String?
+  title     String   @db.VarChar(200)
+  content   String   @db.LongText
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  author  User?  @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([courseId])
+  @@map("course_announcements")
+}
+
+model Certificate {
+  id                String   @id @default(cuid())
+  studentId         String
+  courseId          String
+  certificateNumber String   @unique
+  issuedAt          DateTime @default(now())
+
+  student User   @relation("StudentCertificates", fields: [studentId], references: [id], onDelete: Cascade)
+  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, courseId])
+  @@index([studentId])
+  @@map("certificates")
+}
+
+model CourseReview {
+  id        String   @id @default(cuid())
+  courseId  String
+  studentId String
+  rating    Int
+  comment   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student User   @relation("StudentReviews", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, studentId])
+  @@index([courseId])
+  @@map("course_reviews")
+}
+
+// ─── Surveys / Encuestas ──────────────────────────────────────────────────────
+
+model Survey {
+  id          String   @id @default(cuid())
+  courseId    String?
+  title       String   @db.VarChar(255)
+  description String?  @db.Text
+  isAnonymous Boolean  @default(true)
+  isOpen      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  course    Course?          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions SurveyQuestion[]
+  responses SurveyResponse[]
+
+  @@index([courseId])
+  @@map("surveys")
+}
+
+model SurveyQuestion {
+  id       String             @id @default(cuid())
+  surveyId String
+  text     String             @db.Text
+  type     SurveyQuestionType @default(TEXT)
+  options  Json?
+  order    Int
+
+  survey  Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  answers SurveyAnswer[]
+
+  @@unique([surveyId, order])
+  @@index([surveyId])
+  @@map("survey_questions")
+}
+
+model SurveyResponse {
+  id          String   @id @default(cuid())
+  surveyId    String
+  userId      String?
+  submittedAt DateTime @default(now())
+
+  survey  Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  user    User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  answers SurveyAnswer[]
+
+  @@index([surveyId])
+  @@index([userId])
+  @@map("survey_responses")
+}
+
+model SurveyAnswer {
+  id         String  @id @default(cuid())
+  responseId String
+  questionId String
+  textAnswer String? @db.Text
+  selected   Json?
+
+  response SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, questionId])
+  @@index([responseId])
+  @@index([questionId])
+  @@map("survey_answers")
+}
+
+// ─── Dilemas Éticos ───────────────────────────────────────────────────────────
+
+model DilemmaScenario {
+  id           String   @id @default(cuid())
+  assignmentId String   @unique
+  scenario     String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignment Assignment      @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  choices    DilemmaChoice[]
+
+  @@map("dilemma_scenarios")
+}
+
+model DilemmaChoice {
+  id           String @id @default(cuid())
+  scenarioId   String
+  text         String @db.Text
+  consequence  String @db.Text
+  ethicalScore Int    @default(50)
+  order        Int
+
+  scenario    DilemmaScenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+
+  @@unique([scenarioId, order])
+  @@index([scenarioId])
+  @@map("dilemma_choices")
 }

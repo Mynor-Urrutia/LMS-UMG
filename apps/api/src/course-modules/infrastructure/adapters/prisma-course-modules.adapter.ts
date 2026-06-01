@@ -12,6 +12,7 @@ import { LessonType } from '../../../common/enums/lesson-type.enum';
 const MODULE_SELECT = {
   id: true,
   courseId: true,
+  prerequisiteModuleId: true,
   title: true,
   order: true,
   createdAt: true,
@@ -35,6 +36,7 @@ export class PrismaCourseModulesAdapter implements IModuleRepository {
       select: {
         id: true,
         courseId: true,
+        prerequisiteModuleId: true,
         title: true,
         order: true,
         createdAt: true,
@@ -50,6 +52,7 @@ export class PrismaCourseModulesAdapter implements IModuleRepository {
     return rows.map((row) => ({
       id: row.id,
       courseId: row.courseId,
+      prerequisiteModuleId: row.prerequisiteModuleId,
       title: row.title,
       order: row.order,
       createdAt: row.createdAt,
@@ -84,7 +87,10 @@ export class PrismaCourseModulesAdapter implements IModuleRepository {
     try {
       const row = await this.prisma.courseModule.update({
         where: { id },
-        data: { ...(data.title !== undefined && { title: data.title }) },
+        data: {
+          ...(data.title !== undefined && { title: data.title }),
+          ...(data.prerequisiteModuleId !== undefined && { prerequisiteModuleId: data.prerequisiteModuleId }),
+        },
         select: MODULE_SELECT,
       });
       return this.toEntity(row);
@@ -94,6 +100,20 @@ export class PrismaCourseModulesAdapter implements IModuleRepository {
       }
       throw err;
     }
+  }
+
+  async isModuleCompletedByStudent(moduleId: string, studentId: string): Promise<boolean> {
+    const module = await this.prisma.courseModule.findUnique({
+      where: { id: moduleId },
+      select: { lessons: { where: { isPublished: true }, select: { id: true } } },
+    });
+    if (!module || module.lessons.length === 0) return true;
+
+    const lessonIds = module.lessons.map((l) => l.id);
+    const completedCount = await this.prisma.lessonProgress.count({
+      where: { studentId, lessonId: { in: lessonIds } },
+    });
+    return completedCount >= lessonIds.length;
   }
 
   async reorder(courseId: string, orderedIds: string[]): Promise<void> {
@@ -124,6 +144,7 @@ export class PrismaCourseModulesAdapter implements IModuleRepository {
     return {
       id: row.id,
       courseId: row.courseId,
+      prerequisiteModuleId: row.prerequisiteModuleId,
       title: row.title,
       order: row.order,
       createdAt: row.createdAt,

@@ -23,6 +23,17 @@ const COURSE_SELECT = {
   enrollmentType: true,
   createdAt: true,
   updatedAt: true,
+  teacher: {
+    select: {
+      profile: { select: { firstName: true, lastName: true } },
+    },
+  },
+  category: {
+    select: { id: true, name: true },
+  },
+  _count: {
+    select: { modules: true },
+  },
 } as const;
 
 // Derived from COURSE_SELECT so type and query shape can never drift apart
@@ -185,6 +196,13 @@ export class PrismaCoursesAdapter implements ICourseRepository {
       enrollmentType: row.enrollmentType as EnrollmentType,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      teacher: {
+        id: row.teacherId,
+        firstName: row.teacher?.profile?.firstName ?? '',
+        lastName: row.teacher?.profile?.lastName ?? '',
+      },
+      category: row.category ?? null,
+      _count: { modules: row._count?.modules ?? 0 },
     };
   }
 }

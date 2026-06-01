@@ -11,6 +11,7 @@ export interface LessonEntity {
   content: string | null;
   videoUrl: string | null;
   filePath: string | null;
+  embedUrl: string | null;
   order: number;
   isPublished: boolean;
   createdAt: Date;

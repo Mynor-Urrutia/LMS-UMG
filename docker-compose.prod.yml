@@ -1,6 +1,21 @@
 version: '3.9'
 
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: builder
+    image: lms-api:build
+    command: pnpm --filter @lms/shared db:migrate:prod
+    env_file: .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - lms-net
+    restart: on-failure
+
   api:
     build:
       context: .
@@ -12,6 +27,8 @@ services:
       - uploads:/app/uploads
     env_file: .env
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       mysql:
         condition: service_healthy
     networks:
@@ -30,6 +47,8 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       target: production
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://yourdomain.com}
     image: lms-web:prod
     restart: unless-stopped
     env_file: .env

@@ -41,6 +41,28 @@ export class PublishLessonUseCase {
     if (lesson.type === LessonType.VIDEO && !lesson.videoUrl) {
       throw new UnprocessableEntityException('VIDEO lessons must have a video URL before publishing');
     }
+    if (lesson.type === LessonType.FILE && !lesson.fileAssetId && !lesson.filePath) {
+      throw new UnprocessableEntityException('FILE lessons require a fileAssetId or filePath before publishing');
+    }
+    if (lesson.type === LessonType.INFOGRAPHIC && !lesson.fileAssetId && !lesson.filePath) {
+      throw new UnprocessableEntityException('INFOGRAPHIC lessons require a fileAssetId or filePath before publishing');
+    }
+    if (lesson.type === LessonType.EMBED && !lesson.embedUrl) {
+      throw new UnprocessableEntityException('EMBED lessons must have an embedUrl before publishing');
+    }
+    if (lesson.type === LessonType.CASE_STUDY && !lesson.content) {
+      throw new UnprocessableEntityException('CASE_STUDY lessons must have content before publishing');
+    }
+    if (
+      lesson.type !== LessonType.TEXT &&
+      lesson.type !== LessonType.VIDEO &&
+      lesson.type !== LessonType.FILE &&
+      lesson.type !== LessonType.EMBED &&
+      lesson.type !== LessonType.INFOGRAPHIC &&
+      lesson.type !== LessonType.CASE_STUDY
+    ) {
+      throw new UnprocessableEntityException('Unknown lesson type');
+    }
 
     await this.lessonRepo.updatePublished(lessonId, true);
   }

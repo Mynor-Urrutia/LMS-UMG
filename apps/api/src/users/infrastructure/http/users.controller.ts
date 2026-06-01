@@ -17,11 +17,13 @@ import { UpdateProfileDto } from '../../application/dtos/update-profile.dto';
 import { ChangeRoleDto } from '../../application/dtos/change-role.dto';
 import { ChangeStatusDto } from '../../application/dtos/change-status.dto';
 import { ListUsersDto } from '../../application/dtos/list-users.dto';
+import { AssignCustomRoleDto } from '../../application/dtos/assign-custom-role.dto';
 import { GetProfileUseCase } from '../../application/use-cases/get-profile.use-case';
 import { UpdateProfileUseCase } from '../../application/use-cases/update-profile.use-case';
 import { ListUsersUseCase } from '../../application/use-cases/list-users.use-case';
 import { ChangeUserRoleUseCase } from '../../application/use-cases/change-user-role.use-case';
 import { ChangeUserStatusUseCase } from '../../application/use-cases/change-user-status.use-case';
+import { AssignCustomRoleUseCase } from '../../application/use-cases/assign-custom-role.use-case';
 
 @ApiTags('users')
 @Controller('users')
@@ -32,6 +34,7 @@ export class UsersController {
     private readonly listUsersUseCase: ListUsersUseCase,
     private readonly changeUserRoleUseCase: ChangeUserRoleUseCase,
     private readonly changeUserStatusUseCase: ChangeUserStatusUseCase,
+    private readonly assignCustomRoleUseCase: AssignCustomRoleUseCase,
   ) {}
 
   // Static routes MUST be declared before ':id' — NestJS resolves in declaration order
@@ -58,11 +61,19 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.TEACHER, UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get user by ID (admin only)' })
+  @ApiOperation({ summary: 'Get user by ID (teacher or admin)' })
   getUserById(@Param('id') id: string) {
     return this.getProfileUseCase.execute(id);
+  }
+
+  @Patch(':id/profile')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update any user profile (admin only)' })
+  updateUserProfile(@Param('id') id: string, @Body() dto: UpdateProfileDto) {
+    return this.updateProfileUseCase.execute(id, dto);
   }
 
   @Patch(':id/role')
@@ -87,5 +98,16 @@ export class UsersController {
     @CurrentUser() admin: JwtPayload,
   ) {
     await this.changeUserStatusUseCase.execute(admin.sub, id, dto.status);
+  }
+
+  @Patch(':id/custom-role')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Assign a custom role to a user (admin only)' })
+  async assignCustomRole(
+    @Param('id') id: string,
+    @Body() dto: AssignCustomRoleDto,
+  ) {
+    await this.assignCustomRoleUseCase.execute(id, dto.customRoleId ?? null);
   }
 }

@@ -29,6 +29,19 @@ export class UpdateCourseModuleUseCase {
     const mod = await this.moduleRepo.findById(moduleId);
     if (!mod || mod.courseId !== courseId) throw new NotFoundException('Module not found');
 
-    return this.moduleRepo.update(moduleId, { title: dto.title });
+    if (dto.prerequisiteModuleId) {
+      const prereq = await this.moduleRepo.findById(dto.prerequisiteModuleId);
+      if (!prereq || prereq.courseId !== courseId) {
+        throw new NotFoundException('Prerequisite module not found in this course');
+      }
+      if (prereq.id === moduleId) {
+        throw new ForbiddenException('A module cannot be its own prerequisite');
+      }
+    }
+
+    return this.moduleRepo.update(moduleId, {
+      title: dto.title,
+      prerequisiteModuleId: dto.prerequisiteModuleId,
+    });
   }
 }

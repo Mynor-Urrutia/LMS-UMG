@@ -11,6 +11,7 @@ export interface LessonSummary {
 export interface CourseModuleEntity {
   id: string;
   courseId: string;
+  prerequisiteModuleId: string | null;
   title: string;
   order: number;
   createdAt: Date;
@@ -19,4 +20,5 @@ export interface CourseModuleEntity {
 
 export interface CourseModuleWithLessons extends CourseModuleEntity {
   lessons: LessonSummary[];
+  isLocked?: boolean;
 }

@@ -4,6 +4,8 @@ import {
   HttpCode,
   HttpStatus,
   InternalServerErrorException,
+  Param,
+  Patch,
   Post,
   Req,
   Res,
@@ -13,8 +15,10 @@ import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { Public } from '../../../common/decorators/public.decorator';
+import { Roles } from '../../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
-import { JwtPayload } from '../../../common/interfaces/jwt-payload.interface';
+import { ParseCuidPipe } from '../../../common/pipes/parse-cuid.pipe';
+import { JwtPayload, UserRole } from '../../../common/interfaces/jwt-payload.interface';
 import { RegisterDto } from '../../application/dtos/register.dto';
 import { LoginDto } from '../../application/dtos/login.dto';
 import { ChangePasswordDto } from '../../application/dtos/change-password.dto';
@@ -23,7 +27,16 @@ import { LoginUseCase } from '../../application/use-cases/login.use-case';
 import { LogoutUseCase } from '../../application/use-cases/logout.use-case';
 import { RefreshTokenUseCase } from '../../application/use-cases/refresh-token.use-case';
 import { ChangePasswordUseCase } from '../../application/use-cases/change-password.use-case';
+import { AdminResetPasswordUseCase } from '../../application/use-cases/admin-reset-password.use-case';
+import { IsString, MinLength, MaxLength } from 'class-validator';
 import { ConfigService } from '@nestjs/config';
+
+class AdminResetPasswordDto {
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  newPassword!: string;
+}
 
 const REFRESH_COOKIE = 'refresh_token';
 const AUTH_THROTTLE = { auth: { ttl: 60_000, limit: 5 } };
@@ -37,16 +50,27 @@ export class AuthController {
     private readonly logout: LogoutUseCase,
     private readonly refresh: RefreshTokenUseCase,
     private readonly changePassword: ChangePasswordUseCase,
+    private readonly adminResetPassword: AdminResetPasswordUseCase,
     private readonly configService: ConfigService,
   ) {}
 
-  @Public()
-  @Throttle(AUTH_THROTTLE)
+  @Roles(UserRole.ADMIN)
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new user' })
+  @ApiOperation({ summary: 'Admin creates a new user' })
   async registerUser(@Body() dto: RegisterDto) {
     return this.register.execute(dto);
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Patch('users/:userId/reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Admin resets any user password' })
+  async adminResetUserPassword(
+    @Param('userId', ParseCuidPipe) userId: string,
+    @Body() dto: AdminResetPasswordDto,
+  ) {
+    await this.adminResetPassword.execute(userId, dto.newPassword);
   }
 
   @Public()

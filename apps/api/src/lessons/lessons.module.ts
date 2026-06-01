@@ -12,6 +12,7 @@ import { PublishLessonUseCase } from './application/use-cases/publish-lesson.use
 import { UnpublishLessonUseCase } from './application/use-cases/unpublish-lesson.use-case';
 import { ReorderLessonsUseCase } from './application/use-cases/reorder-lessons.use-case';
 import { DeleteLessonUseCase } from './application/use-cases/delete-lesson.use-case';
+import { ListLessonsUseCase } from './application/use-cases/list-lessons.use-case';
 
 @Module({
   imports: [PrismaModule, CoursesModule, CourseModulesModule],
@@ -25,6 +26,8 @@ import { DeleteLessonUseCase } from './application/use-cases/delete-lesson.use-c
     UnpublishLessonUseCase,
     ReorderLessonsUseCase,
     DeleteLessonUseCase,
+    ListLessonsUseCase,
   ],
+  exports: [LESSON_REPOSITORY],
 })
 export class LessonsModule {}

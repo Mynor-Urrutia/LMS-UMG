@@ -10,6 +10,7 @@ export interface ICreateModuleData {
 
 export interface IUpdateModuleData {
   title?: string;
+  prerequisiteModuleId?: string | null;
 }
 
 export interface IModuleRepository {
@@ -20,4 +21,5 @@ export interface IModuleRepository {
   update(id: string, data: IUpdateModuleData): Promise<CourseModuleEntity>;
   reorder(courseId: string, orderedIds: string[]): Promise<void>;
   delete(id: string): Promise<void>;
+  isModuleCompletedByStudent(moduleId: string, studentId: string): Promise<boolean>;
 }

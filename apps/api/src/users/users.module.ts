@@ -7,6 +7,7 @@ import { UpdateProfileUseCase } from './application/use-cases/update-profile.use
 import { ListUsersUseCase } from './application/use-cases/list-users.use-case';
 import { ChangeUserRoleUseCase } from './application/use-cases/change-user-role.use-case';
 import { ChangeUserStatusUseCase } from './application/use-cases/change-user-status.use-case';
+import { AssignCustomRoleUseCase } from './application/use-cases/assign-custom-role.use-case';
 import { UsersController } from './infrastructure/http/users.controller';
 
 @Module({
@@ -19,6 +20,7 @@ import { UsersController } from './infrastructure/http/users.controller';
     ListUsersUseCase,
     ChangeUserRoleUseCase,
     ChangeUserStatusUseCase,
+    AssignCustomRoleUseCase,
   ],
 })
 export class UsersModule {}

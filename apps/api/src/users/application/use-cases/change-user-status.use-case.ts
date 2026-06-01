@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { IUserRepository, USER_REPOSITORY } from '../../domain/ports/user-repository.port';
 import { SettableUserStatus } from '../dtos/change-status.dto';
-import { UserStatus } from '../../../../common/enums/user-status.enum';
+import { UserStatus } from '../../../common/enums/user-status.enum';
 
 @Injectable()
 export class ChangeUserStatusUseCase {

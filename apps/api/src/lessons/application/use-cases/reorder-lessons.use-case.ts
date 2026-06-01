@@ -33,6 +33,11 @@ export class ReorderLessonsUseCase {
     const lessons = await this.lessonRepo.findByModule(moduleId);
     const existingIds = new Set(lessons.map((l) => l.id));
 
+    const uniqueSubmitted = new Set(dto.ids);
+    if (uniqueSubmitted.size !== dto.ids.length) {
+      throw new BadRequestException('Duplicate lesson IDs are not allowed in reorder');
+    }
+
     if (dto.ids.length !== existingIds.size || !dto.ids.every((id) => existingIds.has(id))) {
       throw new BadRequestException('ids must contain exactly all lesson IDs for this module');
     }

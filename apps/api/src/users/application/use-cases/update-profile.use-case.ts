@@ -10,8 +10,9 @@ export class UpdateProfileUseCase {
   ) {}
 
   async execute(userId: string, dto: UpdateProfileDto): Promise<UserEntity> {
-    const hasChanges =
-      dto.firstName !== undefined || dto.lastName !== undefined || dto.bio !== undefined;
+    const hasChanges = dto.firstName !== undefined || dto.lastName !== undefined ||
+      dto.bio !== undefined || dto.carnet !== undefined ||
+      dto.gradeId !== undefined || dto.sectionId !== undefined || dto.departmentId !== undefined;
 
     if (!hasChanges) {
       const current = await this.userRepo.findById(userId);
@@ -19,11 +20,14 @@ export class UpdateProfileUseCase {
       return current;
     }
 
-    // upsertProfile is transactional — returns the entity atomically after the write
     return this.userRepo.upsertProfile(userId, {
       firstName: dto.firstName,
       lastName: dto.lastName,
       bio: dto.bio,
+      carnet: dto.carnet,
+      gradeId: dto.gradeId,
+      sectionId: dto.sectionId,
+      departmentId: dto.departmentId,
     });
   }
 }

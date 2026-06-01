@@ -25,6 +25,7 @@ import { PublishLessonUseCase } from '../../application/use-cases/publish-lesson
 import { UnpublishLessonUseCase } from '../../application/use-cases/unpublish-lesson.use-case';
 import { ReorderLessonsUseCase } from '../../application/use-cases/reorder-lessons.use-case';
 import { DeleteLessonUseCase } from '../../application/use-cases/delete-lesson.use-case';
+import { ListLessonsUseCase } from '../../application/use-cases/list-lessons.use-case';
 
 @ApiTags('lessons')
 @Controller('courses/:courseId/modules/:moduleId/lessons')
@@ -32,6 +33,7 @@ export class LessonsController {
   constructor(
     private readonly createLessonUseCase: CreateLessonUseCase,
     private readonly getLessonUseCase: GetLessonUseCase,
+    private readonly listLessonsUseCase: ListLessonsUseCase,
     private readonly updateLessonUseCase: UpdateLessonUseCase,
     private readonly publishLessonUseCase: PublishLessonUseCase,
     private readonly unpublishLessonUseCase: UnpublishLessonUseCase,
@@ -50,6 +52,17 @@ export class LessonsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.createLessonUseCase.execute(courseId, moduleId, dto, user.sub, user.role);
+  }
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'List all lessons in a module' })
+  list(
+    @Param('courseId', ParseCuidPipe) courseId: string,
+    @Param('moduleId', ParseCuidPipe) moduleId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.listLessonsUseCase.execute(courseId, moduleId, user.sub, user.role);
   }
 
   @Get(':lessonId')

@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { LessonType } from '../../../common/enums/lesson-type.enum';
@@ -11,18 +11,31 @@ export class CreateLessonDto {
   @MaxLength(200)
   title: string;
 
-  @ApiPropertyOptional({ enum: LessonType, default: LessonType.TEXT })
-  @IsOptional()
+  @ApiProperty({ enum: LessonType })
   @IsEnum(LessonType)
-  type?: LessonType;
+  type: LessonType;
 
-  @ApiPropertyOptional({ description: 'Content for TEXT type lessons (LongText)' })
-  @IsOptional()
+  @ApiPropertyOptional({ description: 'Required for TEXT type lessons' })
+  @ValidateIf((o) => o.type === LessonType.TEXT)
   @IsString()
+  @IsNotEmpty()
   content?: string;
 
-  @ApiPropertyOptional({ description: 'Video URL for VIDEO type lessons' })
-  @IsOptional()
-  @IsUrl()
+  @ApiPropertyOptional({ description: 'Required for VIDEO type lessons' })
+  @ValidateIf((o) => o.type === LessonType.VIDEO)
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @IsNotEmpty()
   videoUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Required for FILE type lessons — ID returned by POST /files' })
+  @ValidateIf((o) => o.type === LessonType.FILE)
+  @IsString()
+  @IsNotEmpty()
+  fileAssetId?: string;
+
+  @ApiPropertyOptional({ description: 'Required for EMBED type lessons — URL of the app to embed (YouTube, Mentimeter, H5P, etc.)' })
+  @ValidateIf((o) => o.type === LessonType.EMBED)
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @IsNotEmpty()
+  embedUrl?: string;
 }

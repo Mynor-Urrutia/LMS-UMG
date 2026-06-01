@@ -3,7 +3,8 @@ import { LoginDto } from '../dtos/login.dto';
 import { IPasswordHasher, PASSWORD_HASHER } from '../../domain/ports/password-hasher.port';
 import { AUTH_USER_REPOSITORY, IAuthUserRepository } from '../../domain/ports/user-repository.port';
 import { ITokenService, TOKEN_SERVICE, TokenPair } from '../../domain/ports/token-service.port';
-import { UserRole } from '../../../../common/interfaces/jwt-payload.interface';
+import { UserRole } from '../../../common/interfaces/jwt-payload.interface';
+import { CustomRoleRepositoryPort } from '../../../custom-roles/domain/ports/custom-role-repository.port';
 
 export interface LoginResult extends TokenPair {
   user: { id: string; email: string; role: UserRole };
@@ -18,6 +19,7 @@ export class LoginUseCase implements OnModuleInit {
     @Inject(AUTH_USER_REPOSITORY) private readonly userRepo: IAuthUserRepository,
     @Inject(PASSWORD_HASHER) private readonly hasher: IPasswordHasher,
     @Inject(TOKEN_SERVICE) private readonly tokenService: ITokenService,
+    private readonly customRoleRepo: CustomRoleRepositoryPort,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -34,7 +36,16 @@ export class LoginUseCase implements OnModuleInit {
     if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const pair = this.tokenService.generatePair({ sub: user.id, email: user.email, role: user.role as UserRole });
+
+    const permissions = await this.customRoleRepo.getPermissionsByUserId(user.id);
+
+    const pair = this.tokenService.generatePair({
+      sub: user.id,
+      email: user.email,
+      role: user.role as UserRole,
+      ...(user.customRoleId ? { customRoleId: user.customRoleId } : {}),
+      ...(permissions.length > 0 ? { permissions } : {}),
+    });
     const refreshTokenExpiresAt = this.tokenService.refreshTokenExpiresAt();
     const tokenHash = this.tokenService.hashToken(pair.refreshToken);
     await this.userRepo.storeRefreshToken(user.id, tokenHash, refreshTokenExpiresAt);

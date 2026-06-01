@@ -1,10 +1,12 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { EnrollmentStatus } from '@prisma/client';
 import { ICourseRepository, COURSE_REPOSITORY } from '../../../courses/domain/ports/course-repository.port';
 import { IModuleRepository, MODULE_REPOSITORY } from '../../../course-modules/domain/ports/course-module-repository.port';
 import { ILessonRepository, LESSON_REPOSITORY } from '../../domain/ports/lesson-repository.port';
 import { LessonEntity } from '../../domain/entities/lesson.entity';
 import { UserRole } from '../../../common/enums/user-role.enum';
 import { CourseStatus } from '../../../common/enums/course-status.enum';
+import { PrismaService } from '../../../common/prisma/prisma.service';
 
 @Injectable()
 export class GetLessonUseCase {
@@ -12,6 +14,7 @@ export class GetLessonUseCase {
     @Inject(COURSE_REPOSITORY) private readonly courseRepo: ICourseRepository,
     @Inject(MODULE_REPOSITORY) private readonly moduleRepo: IModuleRepository,
     @Inject(LESSON_REPOSITORY) private readonly lessonRepo: ILessonRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   async execute(
@@ -39,6 +42,14 @@ export class GetLessonUseCase {
 
     if (!lesson.isPublished && !isOwner && !isAdmin) {
       throw new NotFoundException('Lesson not found');
+    }
+
+    if (requesterRole === UserRole.STUDENT) {
+      const enrollment = await this.prisma.enrollment.findFirst({
+        where: { courseId, studentId: requesterId, status: { in: [EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED] } },
+        select: { id: true },
+      });
+      if (!enrollment) throw new ForbiddenException('You are not enrolled in this course');
     }
 
     return lesson;

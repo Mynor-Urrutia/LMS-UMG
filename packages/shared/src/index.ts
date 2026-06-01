@@ -24,6 +24,12 @@ export type {
   RefreshToken,
   CourseCategory,
   CalendarEvent,
+  Survey,
+  SurveyQuestion,
+  SurveyResponse,
+  SurveyAnswer,
+  DilemmaScenario,
+  DilemmaChoice,
 } from '@prisma/client';
 
 // Re-export enums
@@ -38,5 +44,6 @@ export {
   AssignmentType,
   BadgeCriteria,
   NotificationType,
-  SubmissionStatus,
+  SurveyQuestionType,
 } from '@prisma/client';
+

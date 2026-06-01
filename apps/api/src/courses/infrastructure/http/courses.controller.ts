@@ -11,7 +11,9 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { Public } from '../../../common/decorators/public.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { JwtPayload } from '../../../common/interfaces/jwt-payload.interface';
 import { UserRole } from '../../../common/enums/user-role.enum';
@@ -44,26 +46,30 @@ export class CoursesController {
   ) {}
 
   @Post()
-  @Roles(UserRole.TEACHER, UserRole.ADMIN)
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new course (teacher or admin)' })
-  create(@Body() dto: CreateCourseDto, @CurrentUser() user: JwtPayload) {
-    return this.createCourseUseCase.execute(user.sub, dto);
+  @ApiOperation({ summary: 'Create a new course and assign it to a teacher (admin only)' })
+  create(@Body() dto: CreateCourseDto) {
+    return this.createCourseUseCase.execute(dto);
   }
 
   @Get()
+  @Public()
+  @SkipThrottle({ auth: true })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List courses with filters' })
-  listAll(@Query() dto: ListCoursesDto, @CurrentUser() user: JwtPayload) {
-    return this.listCoursesUseCase.execute(dto, user.sub, user.role);
+  listAll(@Query() dto: ListCoursesDto, @CurrentUser() user: JwtPayload | null) {
+    return this.listCoursesUseCase.execute(dto, user?.sub ?? '', user?.role ?? UserRole.STUDENT);
   }
 
   // Static sub-routes declared before ':slug' to avoid NestJS treating them as slug params
   @Get(':slug')
+  @Public()
+  @SkipThrottle({ auth: true })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get course by slug' })
-  getBySlug(@Param('slug', ParseSlugPipe) slug: string, @CurrentUser() user: JwtPayload) {
-    return this.getCourseUseCase.execute(slug, user.sub, user.role);
+  getBySlug(@Param('slug', ParseSlugPipe) slug: string, @CurrentUser() user: JwtPayload | null) {
+    return this.getCourseUseCase.execute(slug, user?.sub ?? '', user?.role ?? UserRole.STUDENT);
   }
 
   @Patch(':id/publish')

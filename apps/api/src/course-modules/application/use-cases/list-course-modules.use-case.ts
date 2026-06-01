@@ -27,6 +27,19 @@ export class ListCourseModulesUseCase {
       throw new NotFoundException('Course not found');
     }
 
-    return this.moduleRepo.findByCourse(courseId);
+    const modules = await this.moduleRepo.findByCourse(courseId);
+
+    if (requesterRole === UserRole.STUDENT) {
+      const modulesWithLock = await Promise.all(
+        modules.map(async (mod) => {
+          if (!mod.prerequisiteModuleId) return { ...mod, isLocked: false };
+          const prereqCompleted = await this.moduleRepo.isModuleCompletedByStudent(mod.prerequisiteModuleId, requesterId);
+          return { ...mod, isLocked: !prereqCompleted };
+        }),
+      );
+      return modulesWithLock;
+    }
+
+    return modules;
   }
 }

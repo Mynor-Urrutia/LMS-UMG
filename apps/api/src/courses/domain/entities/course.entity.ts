@@ -17,4 +17,7 @@ export interface CourseEntity {
   enrollmentType: EnrollmentType;
   createdAt: Date;
   updatedAt: Date;
+  teacher?: { id: string; firstName: string; lastName: string } | null;
+  category?: { id: string; name: string } | null;
+  _count?: { modules: number };
 }

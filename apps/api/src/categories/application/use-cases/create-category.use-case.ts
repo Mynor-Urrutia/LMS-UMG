@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Inject, Injectable } from '@nes
 import { ICategoryRepository, CATEGORY_REPOSITORY } from '../../domain/ports/category-repository.port';
 import { CategoryEntity } from '../../domain/entities/category.entity';
 import { CreateCategoryDto } from '../dtos/create-category.dto';
-import { slugify } from '../../../../common/utils/slugify';
+import { slugify } from '../../../common/utils/slugify';
 
 @Injectable()
 export class CreateCategoryUseCase {

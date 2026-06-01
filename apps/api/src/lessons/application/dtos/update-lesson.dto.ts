@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -13,11 +13,34 @@ export class UpdateLessonDto {
 
   @ApiPropertyOptional({ description: 'null clears the content' })
   @IsOptional()
+  @ValidateIf((o) => o.content !== null)
   @IsString()
+  @IsNotEmpty()
   content?: string | null;
 
   @ApiPropertyOptional({ description: 'null clears the video URL' })
   @IsOptional()
-  @IsUrl()
+  @ValidateIf((o) => o.videoUrl !== null)
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   videoUrl?: string | null;
+
+  @ApiPropertyOptional({ description: 'null clears the file asset ID' })
+  @IsOptional()
+  @ValidateIf((o) => o.fileAssetId !== null)
+  @IsString()
+  @IsNotEmpty()
+  fileAssetId?: string | null;
+
+  @ApiPropertyOptional({ description: 'null clears the file path' })
+  @IsOptional()
+  @ValidateIf((o) => o.filePath !== null)
+  @IsString()
+  @IsNotEmpty()
+  filePath?: string | null;
+
+  @ApiPropertyOptional({ description: 'null clears the embed URL' })
+  @IsOptional()
+  @ValidateIf((o) => o.embedUrl !== null)
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  embedUrl?: string | null;
 }

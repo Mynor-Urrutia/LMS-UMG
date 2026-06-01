@@ -6,6 +6,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "baseUrl": ".",
+    "strictPropertyInitialization": false,
     "paths": {
       "@lms/shared": ["../../packages/shared/src"],
       "@prisma/client": ["node_modules/@lms/shared/node_modules/@prisma/client"]

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../../common/decorators/roles.decorator';
+import { Public } from '../../../common/decorators/public.decorator';
 import { UserRole } from '../../../common/enums/user-role.enum';
 import { ParseCuidPipe } from '../../../common/pipes/parse-cuid.pipe';
 import { ParseSlugPipe } from '../../../common/pipes/parse-slug.pipe';
@@ -42,6 +43,7 @@ export class CategoriesController {
   }
 
   @Get()
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List all categories' })
   listAll() {
@@ -49,6 +51,7 @@ export class CategoriesController {
   }
 
   @Get(':slug')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get category by slug' })
   getBySlug(@Param('slug', ParseSlugPipe) slug: string) {

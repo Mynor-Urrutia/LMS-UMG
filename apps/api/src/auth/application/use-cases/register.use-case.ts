@@ -23,7 +23,7 @@ export class RegisterUseCase implements OnModuleInit {
       throw new ConflictException('Email already registered');
     }
     const passwordHash = await this.hasher.hash(dto.password);
-    const user = await this.userRepo.createUser(dto.email, passwordHash);
+    const user = await this.userRepo.createUser(dto.email, passwordHash, dto.firstName, dto.lastName, dto.role);
     return { userId: user.id };
   }
 }

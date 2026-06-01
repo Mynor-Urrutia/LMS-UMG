@@ -6,6 +6,7 @@ import { LessonEntity } from '../../domain/entities/lesson.entity';
 import { CreateLessonDto } from '../dtos/create-lesson.dto';
 import { UserRole } from '../../../common/enums/user-role.enum';
 import { LessonType } from '../../../common/enums/lesson-type.enum';
+import { sanitizeRichText } from '../../../common/utils/sanitize';
 
 @Injectable()
 export class CreateLessonUseCase {
@@ -32,14 +33,15 @@ export class CreateLessonUseCase {
     const mod = await this.moduleRepo.findById(moduleId);
     if (!mod || mod.courseId !== courseId) throw new NotFoundException('Module not found');
 
-    const order = (await this.lessonRepo.maxOrder(moduleId)) + 1;
+    const type = dto.type ?? LessonType.TEXT;
     return this.lessonRepo.create({
       moduleId,
       title: dto.title,
-      type: dto.type ?? LessonType.TEXT,
-      content: dto.content ?? null,
+      type,
+      content: (type === LessonType.TEXT || type === LessonType.CASE_STUDY) && dto.content ? sanitizeRichText(dto.content) : (dto.content ?? null),
       videoUrl: dto.videoUrl ?? null,
-      order,
+      fileAssetId: dto.fileAssetId ?? null,
+      embedUrl: dto.embedUrl ?? null,
     });
   }
 }

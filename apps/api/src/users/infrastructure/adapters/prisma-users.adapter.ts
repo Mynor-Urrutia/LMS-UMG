@@ -15,14 +15,22 @@ const USER_SELECT = {
   email: true,
   role: true,
   status: true,
+  customRoleId: true,
   createdAt: true,
   updatedAt: true,
   profile: {
     select: {
       firstName: true,
       lastName: true,
+      carnet: true,
       avatarPath: true,
       bio: true,
+      gradeId: true,
+      sectionId: true,
+      departmentId: true,
+      grade: { select: { id: true, name: true } },
+      section: { select: { id: true, name: true } },
+      department: { select: { id: true, name: true } },
     },
   },
 } as const;
@@ -55,6 +63,7 @@ export class PrismaUsersAdapter implements IUserRepository {
         { email: { contains: term } },
         { profile: { firstName: { contains: term } } },
         { profile: { lastName: { contains: term } } },
+        { profile: { carnet: { contains: term } } },
       ];
     }
 
@@ -81,7 +90,6 @@ export class PrismaUsersAdapter implements IUserRepository {
   }
 
   async upsertProfile(userId: string, data: ProfileData): Promise<UserEntity> {
-    // Single transaction: upsert profile + read full user — eliminates stale-read window
     return this.prisma.$transaction(async (tx) => {
       await tx.profile.upsert({
         where: { userId },
@@ -90,15 +98,22 @@ export class PrismaUsersAdapter implements IUserRepository {
           firstName: data.firstName ?? '',
           lastName: data.lastName ?? '',
           bio: data.bio ?? null,
+          carnet: data.carnet ?? null,
+          gradeId: data.gradeId ?? null,
+          sectionId: data.sectionId ?? null,
+          departmentId: data.departmentId ?? null,
         },
         update: {
           ...(data.firstName !== undefined && { firstName: data.firstName }),
           ...(data.lastName !== undefined && { lastName: data.lastName }),
           ...(data.bio !== undefined && { bio: data.bio }),
+          ...(data.carnet !== undefined && { carnet: data.carnet }),
+          ...(data.gradeId !== undefined && { gradeId: data.gradeId }),
+          ...(data.sectionId !== undefined && { sectionId: data.sectionId }),
+          ...(data.departmentId !== undefined && { departmentId: data.departmentId }),
         },
       });
       const user = await tx.user.findUnique({ where: { id: userId }, select: USER_SELECT });
-      // user cannot be null here: FK constraint on profile.userId guarantees parent exists
       return this.toEntity(user as UserRow);
     });
   }
@@ -129,13 +144,27 @@ export class PrismaUsersAdapter implements IUserRepository {
     });
   }
 
+  async assignCustomRole(userId: string, customRoleId: string | null): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { customRoleId },
+    });
+  }
+
   private toEntity(user: UserRow): UserEntity {
     const profile: UserProfile | null = user.profile
       ? {
           firstName: user.profile.firstName,
           lastName: user.profile.lastName,
+          carnet: user.profile.carnet,
           avatarPath: user.profile.avatarPath,
           bio: user.profile.bio,
+          gradeId: user.profile.gradeId,
+          sectionId: user.profile.sectionId,
+          departmentId: user.profile.departmentId,
+          grade: user.profile.grade ?? null,
+          section: user.profile.section ?? null,
+          department: user.profile.department ?? null,
         }
       : null;
 
@@ -144,6 +173,7 @@ export class PrismaUsersAdapter implements IUserRepository {
       email: user.email,
       role: user.role as unknown as UserRole,
       status: user.status as unknown as UserStatus,
+      customRoleId: user.customRoleId ?? null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       profile,

@@ -8,6 +8,7 @@ export interface AuthUser {
   passwordHash: string;
   role: UserRole;
   status: string;
+  customRoleId: string | null;
 }
 
 export interface StoredRefreshToken {
@@ -19,7 +20,7 @@ export interface StoredRefreshToken {
 export interface IAuthUserRepository {
   findByEmail(email: string): Promise<AuthUser | null>;
   findById(id: string): Promise<AuthUser | null>;
-  createUser(email: string, passwordHash: string): Promise<AuthUser>;
+  createUser(email: string, passwordHash: string, firstName?: string, lastName?: string, role?: UserRole): Promise<AuthUser>;
   updatePasswordHash(userId: string, passwordHash: string): Promise<void>;
   storeRefreshToken(userId: string, tokenHash: string, expiresAt: Date): Promise<void>;
   findRefreshToken(tokenHash: string): Promise<StoredRefreshToken | null>;

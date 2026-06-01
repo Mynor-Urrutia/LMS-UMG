@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { IUserRepository, USER_REPOSITORY } from '../../domain/ports/user-repository.port';
-import { UserRole } from '../../../../common/enums/user-role.enum';
+import { UserRole } from '../../../common/enums/user-role.enum';
 
 @Injectable()
 export class ChangeUserRoleUseCase {

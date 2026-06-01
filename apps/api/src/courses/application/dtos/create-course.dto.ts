@@ -5,6 +5,11 @@ import { CourseDifficulty } from '../../../common/enums/course-difficulty.enum';
 import { EnrollmentType } from '../../../common/enums/enrollment-type.enum';
 
 export class CreateCourseDto {
+  @ApiProperty({ description: 'CUID of the teacher to assign this course to' })
+  @IsString()
+  @IsNotEmpty()
+  teacherId: string;
+
   @ApiProperty({ example: 'Introduction to TypeScript', maxLength: 200 })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()

@@ -9,19 +9,24 @@ export interface ICreateLessonData {
   type: LessonType;
   content: string | null;
   videoUrl: string | null;
-  order: number;
+  fileAssetId?: string | null;
+  filePath?: string | null;
+  embedUrl?: string | null;
 }
 
 export interface IUpdateLessonData {
   title?: string;
   content?: string | null;
   videoUrl?: string | null;
+  fileAssetId?: string | null;
+  filePath?: string | null;
+  embedUrl?: string | null;
 }
 
 export interface ILessonRepository {
   findById(id: string): Promise<LessonEntity | null>;
   findByModule(moduleId: string): Promise<LessonEntity[]>;
-  maxOrder(moduleId: string): Promise<number>;
+  countPublished(courseId: string): Promise<number>;
   create(data: ICreateLessonData): Promise<LessonEntity>;
   update(id: string, data: IUpdateLessonData): Promise<LessonEntity>;
   updatePublished(id: string, isPublished: boolean): Promise<void>;

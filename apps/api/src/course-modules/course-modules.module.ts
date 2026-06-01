@@ -9,6 +9,7 @@ import { ListCourseModulesUseCase } from './application/use-cases/list-course-mo
 import { UpdateCourseModuleUseCase } from './application/use-cases/update-course-module.use-case';
 import { ReorderCourseModulesUseCase } from './application/use-cases/reorder-course-modules.use-case';
 import { DeleteCourseModuleUseCase } from './application/use-cases/delete-course-module.use-case';
+import { GetModulePdfUseCase } from './application/use-cases/get-module-pdf.use-case';
 
 @Module({
   imports: [PrismaModule, CoursesModule],
@@ -20,6 +21,7 @@ import { DeleteCourseModuleUseCase } from './application/use-cases/delete-course
     UpdateCourseModuleUseCase,
     ReorderCourseModulesUseCase,
     DeleteCourseModuleUseCase,
+    GetModulePdfUseCase,
   ],
   exports: [MODULE_REPOSITORY],
 })

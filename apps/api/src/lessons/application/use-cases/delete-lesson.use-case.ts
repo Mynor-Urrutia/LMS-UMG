@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { ICourseRepository, COURSE_REPOSITORY } from '../../../courses/domain/ports/course-repository.port';
 import { IModuleRepository, MODULE_REPOSITORY } from '../../../course-modules/domain/ports/course-module-repository.port';
 import { ILessonRepository, LESSON_REPOSITORY } from '../../domain/ports/lesson-repository.port';
@@ -31,6 +31,10 @@ export class DeleteLessonUseCase {
 
     const lesson = await this.lessonRepo.findById(lessonId);
     if (!lesson || lesson.moduleId !== moduleId) throw new NotFoundException('Lesson not found');
+
+    if (lesson.isPublished) {
+      throw new UnprocessableEntityException('Unpublish the lesson before deleting it');
+    }
 
     await this.lessonRepo.delete(lessonId);
   }
