@@ -1254,7 +1254,7 @@ function ForumThreadView({ thread, courseId, token, onBack }: {
             </button>
           )}
           <button
-            onClick={() => { setEditingPostId(p.id); setEditPostContent(p.content); }}
+            onClick={() => { setEditingPostId(p.id); setEditPostContent(p.content ?? ''); }}
             className="text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400"
           >
             ✏️ Editar
